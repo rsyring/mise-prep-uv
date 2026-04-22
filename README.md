@@ -1,13 +1,13 @@
 # prep-uv
 
-`prep-uv` is a Linux-only [mise](https://mise.jdx.dev) environment plugin that prepares a uv virtualenv for a project and injects the matching environment variables and PATH entry.
+`prep-uv` is a Linux-only [mise](https://mise.jdx.dev) environment plugin that ensures a project's uv virtualenv exists and injects the matching environment variables and `PATH` entry.
 
 ## Install
 
 Register the plugin as `prep-uv`:
 
 ```bash
-mise plugins install prep-uv <repo-url>
+mise plugins install prep-uv https://github.com/rsyring/mise-prep-uv.git
 ```
 
 For local development:
@@ -18,7 +18,7 @@ mise plugins link prep-uv /path/to/mise-prep-uv
 
 ## Usage
 
-Add only the plugin plus a Python tool to your project:
+Make sure `uv` is already available on `PATH`, then add the plugin in `[env]` and Python in `[tools]`:
 
 ```toml
 [env]
@@ -28,19 +28,20 @@ _.prep-uv = { tools = true }
 python = "3.14"
 ```
 
-`tools = true` is required so the plugin can resolve the mise-managed Python and call `uv` from `PATH`.
+`tools = true` is required so the plugin can resolve the mise-managed Python and invoke `uv` from `PATH`.
 
 ## Behavior
 
-- Uses `PREP_UV_CACHE_DIR` when set and the directory exists.
-- Otherwise uses `~/.cache/uv-venvs` when that directory already exists.
-- Otherwise falls back to a project-local `.venv`.
+- If `~/.cache/uv-venvs` exists, or `PREP_UV_CACHE_DIR` is set to an existing directory, the plugin uses a centralized cache and:
+    - creates a deterministic venv directory name
+    - sets `UV_PROJECT_ENVIRONMENT`
+    - detects centralized-name collisions with adjacent `*-root.txt` marker files and resolves them
+      with a stable FNV-1a-64 hash suffix
+- If no centralized directory exists, falls back to a project-local `.venv`.
 - Creates missing virtualenvs with `uv venv <venv-path> --python <python>`.
-- Returns `UV_PYTHON`, `VIRTUAL_ENV`, and exactly one PATH entry: `<venv>/bin`.
-- Returns `UV_PROJECT_ENVIRONMENT` only when using a centralized cache venv.
-- Detects centralized-name collisions with adjacent `*-root.txt` marker files and resolves them with a stable FNV-1a-64 hash suffix.
+- Sets `UV_PYTHON`, `VIRTUAL_ENV`, and exactly one PATH entry: `<venv>/bin`.
 
-If `[tools] python` is not configured, the plugin warns and returns no plugin env or PATH entries. If `UV_PROJECT_ENVIRONMENT` is already set, or if `PREP_UV_CACHE_DIR` points at a missing directory, the plugin errors and returns no plugin env or PATH entries.
+If `[tools] python` is not configured, the plugin warns and returns no plugin env or `PATH` entries. If `UV_PROJECT_ENVIRONMENT` is already set, or if `PREP_UV_CACHE_DIR` points at a missing directory, the plugin errors and returns no plugin env or `PATH` entries.
 
 ## Development
 
