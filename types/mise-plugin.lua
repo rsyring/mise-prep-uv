@@ -89,6 +89,8 @@ ARCH_TYPE = ""
 
 ---@class MiseEnvCtx
 ---@field options table Plugin options from mise.toml
+---@field config_root? string Canonical config root for the active mise config
+---@field project_root? string Project root when provided by mise
 
 ---@class MiseEnvResult
 ---@field env? EnvKey[] Environment variables to set
@@ -97,6 +99,8 @@ ARCH_TYPE = ""
 
 ---@class MisePathCtx
 ---@field options table Plugin options from mise.toml
+---@field config_root? string Canonical config root for the active mise config
+---@field project_root? string Project root when provided by mise
 
 ---@class BackendListVersionsCtx
 ---@field tool string Tool name

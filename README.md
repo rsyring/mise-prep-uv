@@ -1,68 +1,55 @@
-# mise-env-plugin-template
+# prep-uv
 
-Template for creating [mise](https://mise.jdx.dev) environment plugins.
+`prep-uv` is a Linux-only [mise](https://mise.jdx.dev) environment plugin that prepares a uv virtualenv for a project and injects the matching environment variables and PATH entry.
 
-Environment plugins allow you to set environment variables and PATH entries dynamically based on configuration.
+## Install
 
-## Getting Started
+Register the plugin as `prep-uv`:
 
-1. Click "Use this template" to create your own plugin repository
-2. Update `metadata.lua` with your plugin information
-3. Implement `hooks/mise_env.lua` to set environment variables
-4. Optionally implement `hooks/mise_path.lua` to add PATH entries
-
-## Plugin Structure
-
-```
-├── metadata.lua           # Plugin metadata (name, version, etc.)
-├── hooks/
-│   ├── mise_env.lua       # Environment variables hook (required)
-│   └── mise_path.lua      # PATH entries hook (optional)
-├── .luarc.json            # Lua language server configuration
-├── hk.pkl                 # hk linter configuration
-├── mise.toml              # mise configuration for development
-└── .github/workflows/
-    └── ci.yml             # GitHub Actions CI
+```bash
+mise plugins install prep-uv <repo-url>
 ```
 
-## Hooks
+For local development:
 
-### `mise_env.lua`
-
-Returns a list of environment variables to set:
-
-```lua
-function PLUGIN:MiseEnv(ctx)
-    return {
-        { key = "MY_VAR", value = "my_value" }
-    }
-end
+```bash
+mise plugins link prep-uv /path/to/mise-prep-uv
 ```
 
-### `mise_path.lua`
+## Usage
 
-Returns a list of paths to prepend to PATH:
+Add only the plugin plus a Python tool to your project:
 
-```lua
-function PLUGIN:MisePath(ctx)
-    return { "/path/to/bin" }
-end
+```toml
+[env]
+_.prep-uv = { tools = true }
+
+[tools]
+python = "3.14"
 ```
+
+`tools = true` is required so the plugin can resolve the mise-managed Python and call `uv` from `PATH`.
+
+## Behavior
+
+- Uses `PREP_UV_CACHE_DIR` when set and the directory exists.
+- Otherwise uses `~/.cache/uv-venvs` when that directory already exists.
+- Otherwise falls back to a project-local `.venv`.
+- Creates missing virtualenvs with `uv venv <venv-path> --python <python>`.
+- Returns `UV_PYTHON`, `VIRTUAL_ENV`, and exactly one PATH entry: `<venv>/bin`.
+- Returns `UV_PROJECT_ENVIRONMENT` only when using a centralized cache venv.
+- Detects centralized-name collisions with adjacent `*-root.txt` marker files and resolves them with a stable FNV-1a-64 hash suffix.
+
+If `[tools] python` is not configured, the plugin warns and returns no plugin env or PATH entries. If `UV_PROJECT_ENVIRONMENT` is already set, or if `PREP_UV_CACHE_DIR` points at a missing directory, the plugin errors and returns no plugin env or PATH entries.
 
 ## Development
 
 ```bash
-# Install development tools
 mise install
-
-# Run linter
 mise run lint
-
-# Fix linting issues
-mise run lint-fix
+mise run test
 ```
 
-## Documentation
+## Tests
 
-- [Environment Plugin Development Guide](https://mise.jdx.dev/env-plugin-development.html)
-- [mise Documentation](https://mise.jdx.dev)
+Integration coverage is implemented with `pytest` in `test/test_prep_uv.py`. The tests isolate cache and mise directories so they do not touch a developer's real `~/.cache/uv-venvs`.

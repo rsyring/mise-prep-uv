@@ -7,6 +7,8 @@ hk = "latest"
 lua = "5.4"
 lua-language-server = "latest"
 pkl = "latest"
+"pipx:pytest" = "latest"
+"pipx:ruff" = "latest"
 stylua = "latest"
 
 [tasks.lint]
@@ -16,3 +18,7 @@ run = "hk check"
 [tasks.lint-fix]
 description = "Fix linting issues"
 run = "hk fix"
+
+[tasks.test]
+description = "Run pytest integration tests"
+run = "pytest test"

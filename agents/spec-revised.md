@@ -206,7 +206,7 @@ Implementation must also update project docs/template metadata:
 
 ## Test plan
 
-Use `bats-core` integration tests against a real `mise` binary.
+Use `pytest` integration tests against a real `mise` binary.
 
 Tests should validate at least:
 
@@ -233,4 +233,15 @@ The spec is satisfied when:
 - centralized and local `.venv` modes both work as specified
 - collisions are handled deterministically
 - error conditions are explicit and do not leave partial env configuration
-- bats integration tests cover the required scenarios
+- pytest integration tests cover the required scenarios
+
+## Implementation notes
+
+- Implemented the shared plugin logic in `lib/prep-uv.lua` and wired both hooks to it.
+- Updated `metadata.lua`, `README.md`, and `mise.toml` for the `prep-uv` plugin and pytest-based test workflow.
+- Added `test/test_prep_uv.py` coverage for the required centralized, local, collision, warning, and error scenarios.
+
+## Validation notes
+
+- Added pytest integration tests for the acceptance scenarios.
+- In-agent runtime execution was not performed because the repo policy limits CLI usage to read-only commands.

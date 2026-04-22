@@ -1,21 +1,11 @@
---- Plugin metadata
+--- Plugin metadata.
 --- Documentation: https://mise.jdx.dev/env-plugin-development.html
 PLUGIN = {
-	--- Plugin name (required)
-	name = "my-env-plugin",
+    name = "prep-uv",
 
-	--- Plugin version (required)
-	version = "0.0.1",
+    version = "0.1.0",
 
-	--- Plugin description (optional)
-	description = "Template for mise environment plugins",
+    description = "Prepare uv-managed Python virtual environments for mise projects",
 
-	--- Minimum mise version required (optional)
-	minMiseVersion = "2025.1.0",
-
-	--- Plugin author (optional)
-	author = "Your Name",
-
-	--- Plugin repository URL (optional)
-	repository = "https://github.com/your-username/mise-my-env-plugin",
+    minMiseVersion = "2025.1.0",
 }
