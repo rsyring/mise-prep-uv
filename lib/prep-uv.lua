@@ -331,12 +331,6 @@ function M.resolve(ctx, opts)
     end
 
     local project_root = project_root_from_ctx(ctx)
-    if opts.check_uv_project_environment then
-        local existing = os.getenv("UV_PROJECT_ENVIRONMENT")
-        if existing and trim(existing) ~= "" then
-            fail("UV_PROJECT_ENVIRONMENT is already set; refusing to override a user-supplied value")
-        end
-    end
 
     local python = python_path(project_root)
     if not python then
@@ -351,6 +345,17 @@ function M.resolve(ctx, opts)
 
     local resolved_cache_root = cache_root()
     local chosen = choose_venv(resolved_cache_root, project_root)
+
+    if opts.check_uv_project_environment then
+        local existing = os.getenv("UV_PROJECT_ENVIRONMENT")
+        if existing and trim(existing) ~= "" then
+            local normalized_existing = normalize_path(expand_home(existing))
+            if not chosen.centralized or normalized_existing ~= chosen.venv_path then
+                fail("UV_PROJECT_ENVIRONMENT is already set; refusing to override a user-supplied value")
+            end
+        end
+    end
+
     ensure_venv(project_root, chosen.venv_path, python, chosen.marker_path)
 
     local env_vars = {

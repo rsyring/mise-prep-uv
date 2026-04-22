@@ -65,6 +65,20 @@ class TestPrepUv:
         assert 'UV_PROJECT_ENVIRONMENT is already set' in result.stderr
         assert 'VIRTUAL_ENV' not in result.stdout
 
+    def test_allows_matching_uv_project_environment_for_centralized_cache(self, sandbox) -> None:
+        sandbox.uv_cache_dpath.mkdir(parents=True)
+        project_root_dpath = sandbox.test_projects_dpath / 'matching-env'
+        sandbox.write_project(project_root_dpath)
+        expected_venv_dpath = sandbox.uv_cache_dpath / 'matching-env'
+
+        result, env_vars = sandbox.env_json(
+            project_root_dpath,
+            extra_env={'UV_PROJECT_ENVIRONMENT': str(expected_venv_dpath)},
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert env_vars['UV_PROJECT_ENVIRONMENT'] == str(expected_venv_dpath)
+
     def test_uses_prep_uv_cache_dir_when_directory_exists(self, sandbox) -> None:
         prep_cache_dpath = sandbox.runtime_dpath / 'prep-cache'
         prep_cache_dpath.mkdir(parents=True)
