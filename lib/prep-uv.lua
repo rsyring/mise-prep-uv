@@ -93,9 +93,9 @@ local function write_marker(path, project_root)
         fail("failed to write marker file " .. path .. ": " .. tostring(err))
     end
 
-    local writable_handle = assert(handle)
-    writable_handle:write(project_root, "\n")
-    writable_handle:close()
+    ---@cast handle file*
+    handle:write(project_root, "\n")
+    handle:close()
 end
 
 local function xor_byte(word, byte)
@@ -162,7 +162,7 @@ local function project_root_from_pwd()
         return nil
     end
 
-    local search_root = normalize_path(pwd_path)
+    local search_root = normalize_path(expand_home(pwd_path))
     local config_names = {
         "mise.toml",
         ".mise.toml",
@@ -193,38 +193,52 @@ local function project_root_from_pwd()
         search_root = search_root:match("^(.*)/[^/]+$") or "/"
     end
 
-    return normalize_path(pwd_path)
-end
-
-local function add_candidate(candidates, value)
-    if type(value) == "string" and value ~= "" then
-        table.insert(candidates, value)
-    end
+    return nil
 end
 
 local function project_root_from_ctx(ctx)
-    local candidates = {}
-    add_candidate(candidates, ctx and ctx.config_root)
-    add_candidate(candidates, ctx and ctx.project_root)
-    add_candidate(candidates, ctx and ctx.configRoot)
-    add_candidate(candidates, ctx and ctx.projectRoot)
-    add_candidate(candidates, ctx and ctx.options and ctx.options.project_root)
-    add_candidate(candidates, os.getenv("MISE_CONFIG_ROOT"))
-    add_candidate(candidates, os.getenv("MISE_PROJECT_ROOT"))
-    add_candidate(candidates, project_root_from_pwd())
-
-    for _, candidate in ipairs(candidates) do
+    local candidate = ctx and ctx.config_root
+    if type(candidate) == "string" and candidate ~= "" then
         local path = normalize_path(expand_home(candidate))
         if path:match("^/") then
             return path
         end
     end
 
+    local project_candidate = ctx and ctx.project_root
+    if type(project_candidate) == "string" and project_candidate ~= "" then
+        local path = normalize_path(expand_home(project_candidate))
+        if path:match("^/") then
+            return path
+        end
+    end
+
+    local env_candidate = os.getenv("MISE_CONFIG_ROOT")
+    if env_candidate and env_candidate ~= "" then
+        local path = normalize_path(expand_home(env_candidate))
+        if path:match("^/") then
+            return path
+        end
+    end
+
+    local env_project_candidate = os.getenv("MISE_PROJECT_ROOT")
+    if env_project_candidate and env_project_candidate ~= "" then
+        local path = normalize_path(expand_home(env_project_candidate))
+        if path:match("^/") then
+            return path
+        end
+    end
+
+    local pwd_candidate = project_root_from_pwd()
+    if pwd_candidate then
+        return pwd_candidate
+    end
+
     fail("could not determine project root from mise config context")
 end
 
-local function python_path(project_root)
-    return command_output("command -v python 2>/dev/null", project_root)
+local function python_path()
+    return command_output("command -v python 2>/dev/null")
 end
 
 local function ensure_uv_on_path(project_root)
@@ -259,7 +273,7 @@ end
 local function candidate_status(root, venv_dname, project_root)
     local venv_path = file.join_path(root, venv_dname)
     local marker_path = file.join_path(root, venv_dname .. "-root.txt")
-    local has_venv = file.exists(venv_path)
+    local has_venv = dir_exists(venv_path)
     local has_marker = file.exists(marker_path)
 
     if not has_venv and not has_marker then
@@ -332,9 +346,11 @@ function M.resolve(ctx, opts)
 
     local project_root = project_root_from_ctx(ctx)
 
-    local python = python_path(project_root)
+    local python = python_path()
     if not python then
-        warn('no Python tool is configured; add `[tools] python = "..."` and retry')
+        if opts.warn_on_missing_python ~= false then
+            warn('no Python tool is configured; add `[tools] python = "..."` and retry')
+        end
         return {
             env = {},
             paths = {},

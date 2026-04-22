@@ -5,44 +5,21 @@ review. Line references are current as of this review.
 
 ## Spec compliance
 
-### Matches the spec
-
-- Plugin shape, activation syntax, and metadata name (`prep-uv`).
-- Linux-only guard via `RUNTIME.osType` (`lib/prep-uv.lua:329`).
-- Venv precedence: `PREP_UV_CACHE_DIR` (must exist) → `~/.cache/uv-venvs/` →
-  project-local `.venv` (`cache_root`, `choose_venv`).
-- Centralized naming from project-root basename, marker file at
-  `<cache>/<name>-root.txt`, ownership by matching absolute root path.
-- Collision behavior: unmarked existing venv is treated as collision; retries
-  with 3- and 8-char FNV-1a-64 suffix; hard error if still unresolved.
-- Pure-Lua FNV-1a-64 implementation (`xor_byte`, `multiply_prime`,
-  `fnv1a64_hex`) — no bit library dependency.
-- Venv creation uses `uv venv <path> --python <python>`; no `python -m venv`
-  fallback; marker written after successful creation.
-- Returned env vars match the spec for both centralized and local modes
-  (`UV_PROJECT_ENVIRONMENT` only in centralized).
-- Single PATH entry `<venv>/bin`.
-- Missing Python warns on stderr and returns `env={}, paths={}`.
-- `UV_PROJECT_ENVIRONMENT` user-set conflict errors out.
-- No `pyproject.toml` / `uv.lock` probing.
-- `cacheable = true` on `MiseEnv`; no `watch_files`.
-- Docs updated (`README.md`, `metadata.lua`, `mise.toml`).
-- pytest integration tests cover all 11 scenarios enumerated in the spec.
 
 ### Deviations / gaps
 
-1. **Python detection does not use the mise tools context.**
+1. **Python detection relies on PATH, not an explicit tools check.**
    `python_path` shells out to `command -v python` (`lib/prep-uv.lua:226-228`).
-   The spec and desired pattern reference `{{ tools.python.path }}`. With
-   `tools = true` the mise-managed Python is on PATH so this works in practice,
-   but:
-   - It silently accepts any `python` that happens to be on PATH, not just the
-     one declared in `[tools]`. The spec's "at least one Python version
-     configured in `[tools]`" check is therefore only approximated.
-   - It does not consult `ctx.tools` / equivalent mise API, so the link to the
-     configured tool is indirect.
-   Consider resolving via the ctx/tools API (see `types/mise-plugin.lua`) and
-   erroring only when no python tool entry is present.
+   Per the mise env-plugin docs and `types/mise-plugin.lua`, `MiseEnvCtx`
+   exposes only `options`, `config_root`, and `project_root` — there is no
+   `ctx.tools`, and the documented pattern for reaching mise-managed tools is
+   `tools = true` plus shelling out, so the current approach is the supported
+   one. The remaining concern is narrower: `command -v python` will accept any
+   `python` on PATH, not strictly one declared in `[tools]`. With `env -i` in
+   tests this is fine, but in real shells a system Python could satisfy the
+   check. If a stricter guarantee is wanted, the plugin would need to inspect
+   the resolved path and verify it lives under the mise installs dir — there
+   is no direct `ctx.tools.python.path` API to call.
 
 2. **`UV_PROJECT_ENVIRONMENT` conflict check is env-hook only.**
    `hooks/mise_path.lua` calls `resolve(ctx)` without
@@ -141,8 +118,10 @@ review. Line references are current as of this review.
 1. Make `MisePath` honor the same error conditions as `MiseEnv` (pass
    `check_uv_project_environment=true`, or have `MisePath` call into the env
    result).
-2. Resolve Python from the mise tools context rather than `command -v python`,
-   and make the "no `[tools] python`" check explicit.
+2. Narrow the "no `[tools] python`" check if desired — verify the resolved
+   `python` lives under the mise installs directory rather than accepting any
+   PATH match. No mise API exposes the tool path directly to env plugins, so
+   this would be a heuristic, not an API switch.
 3. Drop `project_root_from_pwd` and the ctx alias soup; use the one documented
    `config_root` field (plus a single env-var fallback if needed).
 4. Use `dir_exists` (or a shared helper) in `candidate_status`; remove the
@@ -150,3 +129,5 @@ review. Line references are current as of this review.
 5. Trim "Implementation notes" / "Validation notes" from
    `agents/spec-revised.md` so the spec stays a decisions doc, not an
    implementation mirror.
+
+

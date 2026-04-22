@@ -52,8 +52,39 @@ class TestPrepUv:
         assert str(project_root_dpath / '.venv' / 'bin') not in env_vars.get('PATH', '').split(':')
         assert 'no Python tool is configured' in result.stderr
 
+    def test_falls_back_to_project_root_when_config_root_is_missing(self, sandbox) -> None:
+        project_root_dpath = sandbox.test_projects_dpath / 'project-root-fallback'
+        sandbox.write_project(project_root_dpath)
+
+        result, env_vars = sandbox.env_json(
+            project_root_dpath,
+            extra_env={'MISE_CONFIG_ROOT': ''},
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert env_vars['VIRTUAL_ENV'] == str(project_root_dpath / '.venv')
+
+    def test_falls_back_to_pwd_when_root_context_is_missing(self, sandbox) -> None:
+        project_root_dpath = sandbox.test_projects_dpath / 'pwd-root-fallback'
+        nested_dpath = project_root_dpath / 'src' / 'pkg'
+        sandbox.write_project(project_root_dpath)
+        nested_dpath.mkdir(parents=True)
+        sandbox.project_python_versions[nested_dpath] = '3.14'
+
+        result, env_vars = sandbox.env_json(
+            nested_dpath,
+            extra_env={
+                'MISE_CONFIG_ROOT': '',
+                'MISE_PROJECT_ROOT': '',
+            },
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert env_vars['VIRTUAL_ENV'] == str(project_root_dpath / '.venv')
+
     def test_errors_when_uv_project_environment_is_already_set(self, sandbox) -> None:
         project_root_dpath = sandbox.test_projects_dpath / 'conflicting-env'
+        venv_dpath = project_root_dpath / '.venv'
         sandbox.write_project(project_root_dpath)
 
         result, _ = sandbox.env_json(
@@ -64,6 +95,7 @@ class TestPrepUv:
         assert result.returncode != 0
         assert 'UV_PROJECT_ENVIRONMENT is already set' in result.stderr
         assert 'VIRTUAL_ENV' not in result.stdout
+        assert not venv_dpath.exists()
 
     def test_allows_matching_uv_project_environment_for_centralized_cache(self, sandbox) -> None:
         sandbox.uv_cache_dpath.mkdir(parents=True)
